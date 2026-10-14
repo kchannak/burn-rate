@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Builds "Claude Usage Tracker.app" and packages it as a .zip and .dmg in dist/.
+#
+# Without signing credentials the app is ad-hoc signed: it runs on this Mac, and on other
+# Macs after right-click > Open (or `xattr -dr com.apple.quarantine`). For a build others
+# can open normally, set all of:
+#   SIGN_IDENTITY     "Developer ID Application: Your Name (TEAMID)" (in your keychain)
+#   NOTARY_APPLE_ID   Apple ID email used for notarization
+#   NOTARY_TEAM_ID    10-character Apple Developer team id
+#   NOTARY_PASSWORD   app-specific password for that Apple ID
+#
+# Optional: VERSION (default 0.1.0), BUILD_NUMBER (default 1), BUNDLE_ID.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+VERSION="${VERSION:-0.1.0}"
+BUILD_NUMBER="${BUILD_NUMBER:-1}"
+BUNDLE_ID="${BUNDLE_ID:-io.github.kchannak.ClaudeUsageTracker}"
+APP_NAME="Claude Usage Tracker"
+PRODUCT="ClaudeUsageTracker"
+DIST="dist"
+APP="$DIST/$APP_NAME.app"
+ARTIFACT="$DIST/$PRODUCT-$VERSION"
+
+echo "==> Building $PRODUCT $VERSION (universal)"
+swift build -c release --product "$PRODUCT" --arch arm64 --arch x86_64
+BIN_DIR="$(swift build -c release --product "$PRODUCT" --arch arm64 --arch x86_64 --show-bin-path)"
+
+echo "==> Assembling $APP"
+rm -rf "$DIST"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+cp "$BIN_DIR/$PRODUCT" "$APP/Contents/MacOS/$PRODUCT"
+sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD_NUMBER/" -e "s/__BUNDLE_ID__/$BUNDLE_ID/" \
+    Resources/Info.plist > "$APP/Contents/Info.plist"
+
+if [[ -n "${SIGN_IDENTITY:-}" ]]; then
+    echo "==> Signing with $SIGN_IDENTITY"
+    codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$APP"
+else
+    echo "==> No SIGN_IDENTITY set; ad-hoc signing"
+    codesign --force --sign - "$APP"
+fi
+codesign --verify --strict "$APP"
+
+echo "==> Creating disk image"
+STAGING="$(mktemp -d)"
+cp -R "$APP" "$STAGING/"
+ln -s /Applications "$STAGING/Applications"
+hdiutil create -volname "$APP_NAME" -srcfolder "$STAGING" -ov -format UDZO "$ARTIFACT.dmg" >/dev/null
+rm -rf "$STAGING"
+
+if [[ -n "${SIGN_IDENTITY:-}" ]]; then
+    codesign --force --timestamp --sign "$SIGN_IDENTITY" "$ARTIFACT.dmg"
+fi
+
+if [[ -n "${SIGN_IDENTITY:-}" && -n "${NOTARY_APPLE_ID:-}" && -n "${NOTARY_TEAM_ID:-}" && -n "${NOTARY_PASSWORD:-}" ]]; then
+    echo "==> Notarizing (this waits for Apple)"
+    xcrun notarytool submit "$ARTIFACT.dmg" \
+        --apple-id "$NOTARY_APPLE_ID" --team-id "$NOTARY_TEAM_ID" --password "$NOTARY_PASSWORD" \
+        --wait
+    # The disk image's ticket also covers the app inside it, so both can be stapled.
+    xcrun stapler staple "$ARTIFACT.dmg"
+    xcrun stapler staple "$APP"
+else
+    echo "==> Skipping notarization (credentials not set)"
+fi
+
+echo "==> Creating zip"
+ditto -c -k --keepParent "$APP" "$ARTIFACT.zip"
+
+echo "==> Done"
+ls -lh "$DIST"
