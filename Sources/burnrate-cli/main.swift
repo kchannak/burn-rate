@@ -2,7 +2,7 @@ import Foundation
 import UsageCore
 
 // Prints the same per-session numbers the app shows.
-// Usage: claude-usage [--all] [--root <Claude projects dir>] [--codex-root <Codex home>]
+// Usage: burnrate [--all] [--root <Claude projects dir>] [--codex-root <Codex home>]
 
 let arguments = Array(CommandLine.arguments.dropFirst())
 let showAll = arguments.contains("--all")

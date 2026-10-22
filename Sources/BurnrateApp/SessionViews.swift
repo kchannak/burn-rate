@@ -308,7 +308,7 @@ struct MeterPanel: View {
     private var titleRow: some View {
         HStack(spacing: 8) {
             Circle().fill(Meter.accent).frame(width: 6, height: 6)
-            Text("CLAUDE USAGE").font(Meter.mono(11, .semibold)).tracking(2).foregroundStyle(Meter.text)
+            Text("BURNRATE").font(Meter.mono(11, .semibold)).tracking(2).foregroundStyle(Meter.text)
             Spacer()
             MicroLabel("local")
             modeButton("arrow.down.right.and.arrow.up.left", "Shrink to a compact summary")

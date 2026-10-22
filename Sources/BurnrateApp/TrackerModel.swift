@@ -42,7 +42,7 @@ final class TrackerModel: ObservableObject {
     }
 
     private let store = AllSources()
-    private let queue = DispatchQueue(label: "ClaudeUsageTracker.store")
+    private let queue = DispatchQueue(label: "Burnrate.store")
     private var timer: Timer?
     private var isRefreshing = false
     private var previousStates: [String: SessionState] = [:]
@@ -126,7 +126,8 @@ final class TrackerModel: ObservableObject {
             guard previous != session.state,
                   session.state == .needsReply || session.state == .waitingOnTool else { continue }
             let content = UNMutableNotificationContent()
-            content.title = session.state == .needsReply ? "Claude is waiting for you" : "Claude may need permission"
+            content.title = session.state == .needsReply
+                ? "\(session.agent.label) is waiting for you" : "\(session.agent.label) may need permission"
             content.subtitle = session.projectName
             content.body = session.title
             content.userInfo = ["sessionId": session.id]

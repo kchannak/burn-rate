@@ -3,7 +3,7 @@ import SwiftUI
 import UsageCore
 
 @main
-struct ClaudeUsageTrackerApp: App {
+struct BurnrateApp: App {
     @StateObject private var model = TrackerModel()
 
     init() {
@@ -13,7 +13,7 @@ struct ClaudeUsageTrackerApp: App {
     }
 
     var body: some Scene {
-        Window("Claude Usage", id: "sessions") {
+        Window("Burnrate", id: "sessions") {
             MeterPanel()
                 .environmentObject(model)
                 .fixedSize()
