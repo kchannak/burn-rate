@@ -47,9 +47,25 @@ public enum SessionState: String, Sendable, CaseIterable {
     }
 }
 
+/// The coding agent a session belongs to.
+public enum Agent: String, Sendable, CaseIterable {
+    case claude
+    case codex
+
+    public var label: String {
+        switch self {
+        case .claude: return "Claude"
+        case .codex: return "Codex"
+        }
+    }
+}
+
 public struct SessionSummary: Identifiable, Sendable {
     public let id: String
+    public var agent: Agent = .claude
     public var title: String
+    /// The first typed prompt, kept for search even when the session has a name.
+    public var firstPrompt: String?
     public var cwd: String?
     public var gitBranch: String?
     public var entrypoint: String?
@@ -99,6 +115,8 @@ final class SessionAccumulator {
     let id: String
     var title: String?
     var summaryTitle: String?
+    var customTitle: String?
+    var aiTitle: String?
     var cwd: String?
     var gitBranch: String?
     var entrypoint: String?
@@ -128,6 +146,13 @@ final class SessionAccumulator {
 
         if entry.type == "summary", let summary = entry.summary, !summary.isEmpty {
             summaryTitle = summary
+        }
+
+        if entry.type == "custom-title", let name = entry.customTitle, !name.isEmpty {
+            customTitle = name
+        }
+        if entry.type == "ai-title", let name = entry.aiTitle, !name.isEmpty {
+            aiTitle = name
         }
 
         guard let date, entry.type == "user" || entry.type == "assistant" else { return }
@@ -204,7 +229,8 @@ final class SessionAccumulator {
 
         return SessionSummary(
             id: id,
-            title: summaryTitle ?? title ?? URL(fileURLWithPath: cwd ?? id).lastPathComponent,
+            title: customTitle ?? aiTitle ?? summaryTitle ?? title ?? URL(fileURLWithPath: cwd ?? id).lastPathComponent,
+            firstPrompt: title,
             cwd: cwd,
             gitBranch: gitBranch,
             entrypoint: entrypoint,

@@ -4,8 +4,10 @@
 Needs Pillow (pip install pillow). scripts/build-app.sh turns the iconset into
 AppIcon.icns with iconutil, so only rerun this when the artwork changes.
 
-The artwork: a dark tile with a large orange Claude-style spark in the back, and a small
-stack of dollar notes and a teal token-usage bar chart in front of it.
+The artwork: a dark tile with two agent marks side by side (an orange Claude-style spark and
+a white Codex-style knot), and a small stack of dollar notes and a teal token-usage bar chart
+in front of them. Both marks are drawn here in the spirit of the originals, not copied, and
+are meant for personal use of the app.
 """
 import math
 import os
@@ -18,6 +20,7 @@ N = 1024 * SS               # working canvas
 BG_TOP, BG_BOTTOM = (30, 31, 34), (12, 12, 14)
 TEAL = (45, 212, 191)
 ORANGE = (217, 119, 87)
+WHITE = (236, 238, 242)
 NOTE, NOTE_DARK, NOTE_INK = (52, 110, 82), (33, 74, 55), (150, 200, 170)
 
 FONT_PATHS = [
@@ -92,9 +95,49 @@ def spark(canvas, cx, cy, r):
     canvas.alpha_composite(layer)
 
 
+def knot(canvas, cx, cy, r):
+    """Six woven rounded links around a hexagonal centre, in the spirit of the OpenAI mark.
+
+    Each link is outlined in the tile colour so it reads as passing over its neighbour.
+    Drawn in one order, the last link would sit on top of the first, so the result is
+    stitched from two draw orders: each half of the knot comes from the order that has
+    no seam there.
+    """
+    gap_colour = tuple(int((a + b) / 2) for a, b in zip(BG_TOP, BG_BOTTOM)) + (255,)
+    off, width, top, bottom, radius, stroke = 0.3, 0.6, 0.85, -0.4, 0.3, 0.12
+
+    def link(i):
+        img = Image.new("RGBA", (N, N), (0, 0, 0, 0))
+        d = ImageDraw.Draw(img)
+        box = [cx + off * r - width * r / 2, cy - top * r, cx + off * r + width * r / 2, cy - bottom * r]
+        g = stroke * r * 0.9
+        d.rounded_rectangle([box[0] - g / 2, box[1] - g / 2, box[2] + g / 2, box[3] + g / 2],
+                            int(radius * r + g / 2), outline=gap_colour, width=int(stroke * r + g))
+        d.rounded_rectangle(box, int(radius * r), outline=WHITE + (255,), width=int(stroke * r))
+        return img.rotate(-i * 60, resample=Image.BICUBIC, center=(cx, cy))
+
+    links = [link(i) for i in range(6)]
+
+    def stack(order):
+        img = Image.new("RGBA", (N, N), (0, 0, 0, 0))
+        for i in order:
+            img.alpha_composite(links[i])
+        return img
+
+    first, second = stack([0, 1, 2, 3, 4, 5]), stack([3, 4, 5, 0, 1, 2])
+    # The first order's seam is where link 5 crosses link 0, up and to the right of centre
+    # (screen coordinates); take that half-plane from the second order.
+    seam = math.atan2(-0.73, 0.68)
+    half = Image.linear_gradient("L").resize((N, N)).point(lambda v: 255 if v >= 128 else 0)
+    # linear_gradient grows downwards; turn "down" to point at the seam, about the knot centre.
+    half = half.rotate(math.degrees(math.pi / 2 - seam) * -1, resample=Image.NEAREST,
+                       center=(N / 2, N / 2), translate=(cx - N / 2, cy - N / 2), fillcolor=0)
+    canvas.alpha_composite(Image.composite(second, first, half))
+
+
 def bars(canvas):
     # Token usage per session: teal bars of uneven height, edged in the tile colour so they
-    # stay distinct where they cross the spark.
+    # stay distinct where they cross the marks.
     base, width, gap = 790, 42, 18
     heights = [110, 200, 150, 250]
     layer = Image.new("RGBA", (N, N), (0, 0, 0, 0))
@@ -110,7 +153,8 @@ def bars(canvas):
 
 def render():
     canvas = background()
-    spark(canvas, px(512), px(490), px(300))
+    spark(canvas, px(350), px(390), px(195))
+    knot(canvas, px(680), px(390), px(175))
     for angle, (x, y) in ((16, (400, 690)), (7, (410, 720)), (-2, (420, 750))):
         paste_rotated(canvas, note(270, 140), angle, (px(x), px(y)))
     bars(canvas)

@@ -6,7 +6,7 @@ import Foundation
 public final class UsageStore {
     public struct Options {
         /// Log files not modified within this window are skipped entirely.
-        public var maxFileAge: TimeInterval = 7 * 24 * 3600
+        public var maxFileAge: TimeInterval = 30 * 24 * 3600
         /// How long a finished turn keeps a session in `needsReply` before it counts as idle.
         public var activeWindow: TimeInterval = 2 * 3600
 
