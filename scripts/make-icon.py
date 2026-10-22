@@ -4,8 +4,8 @@
 Needs Pillow (pip install pillow). scripts/build-app.sh turns the iconset into
 AppIcon.icns with iconutil, so only rerun this when the artwork changes.
 
-The artwork: a dark tile with a stack of dollar notes, a teal stepped usage line rising
-across them, and an orange Claude-style spark at the peak.
+The artwork: a dark tile with a large orange Claude-style spark in the back, and a small
+stack of dollar notes and a teal token-usage bar chart in front of it.
 """
 import math
 import os
@@ -92,30 +92,28 @@ def spark(canvas, cx, cy, r):
     canvas.alpha_composite(layer)
 
 
-def chart(canvas):
-    pts_1024 = [(190, 560), (320, 560), (320, 470), (450, 470), (450, 510),
-                (570, 510), (570, 380), (690, 380), (690, 330)]
-    pts = [(px(x), px(y)) for x, y in pts_1024]
-
-    glow = Image.new("RGBA", (N, N), (0, 0, 0, 0))
-    ImageDraw.Draw(glow).line(pts, fill=TEAL + (150,), width=px(70), joint="curve")
-    canvas.alpha_composite(glow.filter(ImageFilter.GaussianBlur(px(22))))
-
-    line = Image.new("RGBA", (N, N), (0, 0, 0, 0))
-    d = ImageDraw.Draw(line)
-    d.line(pts, fill=TEAL, width=px(40), joint="curve")
-    for x, y in (pts[0],):
-        d.ellipse([x - px(20), y - px(20), x + px(20), y + px(20)], fill=TEAL)
-    canvas.alpha_composite(line)
-    return pts[-1]
+def bars(canvas):
+    # Token usage per session: teal bars of uneven height, edged in the tile colour so they
+    # stay distinct where they cross the spark.
+    base, width, gap = 790, 42, 18
+    heights = [110, 200, 150, 250]
+    layer = Image.new("RGBA", (N, N), (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    for i, h in enumerate(heights):
+        x0 = 565 + i * (width + gap)
+        box = [px(x0), px(base - h), px(x0 + width), px(base)]
+        d.rounded_rectangle([box[0] - px(8), box[1] - px(8), box[2] + px(8), box[3] + px(8)],
+                            px(18), fill=BG_BOTTOM)
+        d.rounded_rectangle(box, px(10), fill=TEAL)
+    canvas.alpha_composite(layer)
 
 
 def render():
     canvas = background()
-    paste_rotated(canvas, note(560, 280), 11, (px(490), px(650)))
-    paste_rotated(canvas, note(560, 280), 0, (px(530), px(700)))
-    end = chart(canvas)
-    spark(canvas, end[0], end[1] - px(50), px(125))
+    spark(canvas, px(512), px(490), px(300))
+    for angle, (x, y) in ((16, (400, 690)), (7, (410, 720)), (-2, (420, 750))):
+        paste_rotated(canvas, note(270, 140), angle, (px(x), px(y)))
+    bars(canvas)
 
     mask = tile_mask()
     # A hairline highlight on the tile edge keeps it from melting into dark docks.
