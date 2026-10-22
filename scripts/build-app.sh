@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds "Claude Usage.app" and packages it as a .zip and .dmg in dist/.
+# Builds "Burnrate.app" and packages it as a .zip and .dmg in dist/.
 #
 # Without signing credentials the app is ad-hoc signed: it runs on this Mac, and on other
 # Macs after right-click > Open (or `xattr -dr com.apple.quarantine`). For a build others
@@ -16,12 +16,12 @@ cd "$(dirname "$0")/.."
 
 VERSION="${VERSION:-0.1.0}"
 BUILD_NUMBER="${BUILD_NUMBER:-1}"
-BUNDLE_ID="${BUNDLE_ID:-io.github.kchannak.ClaudeUsageTracker}"
-APP_NAME="Claude Usage"
-PRODUCT="ClaudeUsageTracker"
+BUNDLE_ID="${BUNDLE_ID:-io.github.kchannak.Burnrate}"
+APP_NAME="Burnrate"
+PRODUCT="BurnrateApp"
 DIST="dist"
 APP="$DIST/$APP_NAME.app"
-ARTIFACT="$DIST/$PRODUCT-$VERSION"
+ARTIFACT="$DIST/$APP_NAME-$VERSION"
 
 echo "==> Building $PRODUCT $VERSION (universal)"
 swift build -c release --product "$PRODUCT" --arch arm64 --arch x86_64

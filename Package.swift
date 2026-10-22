@@ -2,20 +2,20 @@
 import PackageDescription
 
 let package = Package(
-    name: "ClaudeUsageTracker",
+    name: "Burnrate",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "ClaudeUsageTracker", targets: ["ClaudeUsageTracker"]),
-        .executable(name: "claude-usage", targets: ["claude-usage"]),
+        .executable(name: "BurnrateApp", targets: ["BurnrateApp"]),
+        .executable(name: "burnrate", targets: ["burnrate-cli"]),
         .library(name: "UsageCore", targets: ["UsageCore"]),
     ],
     targets: [
         // Log parsing and aggregation. Foundation only, so it is testable without a UI.
         .target(name: "UsageCore"),
         // Command-line report over the same data, handy for checking numbers.
-        .executableTarget(name: "claude-usage", dependencies: ["UsageCore"]),
+        .executableTarget(name: "burnrate-cli", dependencies: ["UsageCore"]),
         // The macOS menu bar + window app.
-        .executableTarget(name: "ClaudeUsageTracker", dependencies: ["UsageCore"]),
+        .executableTarget(name: "BurnrateApp", dependencies: ["UsageCore"]),
         .testTarget(name: "UsageCoreTests", dependencies: ["UsageCore"]),
     ]
 )

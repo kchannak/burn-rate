@@ -3,7 +3,7 @@ import Foundation
 /// Fuzzy matching of sessions by name, project folder, first prompt and branch.
 ///
 /// Every word in the query has to match one of those fields, either as a substring or as
-/// letters in order ("trkusg" matches "track-claude-usage"). Substring matches, matches at
+/// letters in order ("brnrt" matches "burn-rate"). Substring matches, matches at
 /// the start of a word and matches in the session name score higher.
 public enum SessionSearch {
     /// Sessions that match `query`, best first; ties go to the most recently active.
