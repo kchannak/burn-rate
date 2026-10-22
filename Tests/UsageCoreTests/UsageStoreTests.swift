@@ -167,4 +167,46 @@ final class UsageStoreTests: XCTestCase {
         XCTAssertEqual(SessionAccumulator.promptTitle("  short  "), "short")
         XCTAssertEqual(SessionAccumulator.promptTitle(String(repeating: "x", count: 100))?.count, 80)
     }
+
+    func testNamedSessionKeepsFirstPromptAndPrefersCustomTitle() throws {
+        try write([
+            user("s1", 0, prompt: "Explore the usage tracking repo"),
+            assistant("s1", 2, id: "m1"),
+            #"{"type":"ai-title","aiTitle":"Usage repo tour","sessionId":"s1"}"#,
+            #"{"type":"custom-title","customTitle":"Tracker work","sessionId":"s1"}"#,
+        ], to: "s1.jsonl")
+
+        let session = try XCTUnwrap(UsageStore(root: root.deletingLastPathComponent())
+            .refresh(now: base.addingTimeInterval(10)).first)
+        XCTAssertEqual(session.title, "Tracker work")
+        XCTAssertEqual(session.firstPrompt, "Explore the usage tracking repo")
+    }
+
+    func testReadsThinkingTokensAndCacheHitRate() throws {
+        try write([
+            user("s1", 0, prompt: "Think hard"),
+            #"{"type":"assistant","sessionId":"s1","timestamp":"\#(ts(2))","message":{"id":"m1","role":"assistant","model":"claude-test","content":[{"type":"text","text":"hi"}],"usage":{"input_tokens":10,"output_tokens":300,"cache_creation_input_tokens":90,"cache_read_input_tokens":900,"output_tokens_details":{"thinking_tokens":120}}}}"#,
+        ], to: "s1.jsonl")
+
+        let session = try XCTUnwrap(UsageStore(root: root.deletingLastPathComponent())
+            .refresh(now: base.addingTimeInterval(10)).first)
+        XCTAssertEqual(session.tokens.thinking, 120)
+        XCTAssertEqual(session.tokens.output, 300)
+        XCTAssertEqual(session.tokens.total, 1300, "thinking is part of output, not added again")
+        XCTAssertEqual(try XCTUnwrap(session.tokens.cacheHitRate), 0.9, accuracy: 0.0001)
+    }
+
+    func testFuzzySearchRanksNameMatchesFirstAndMatchesLettersInOrder() throws {
+        try write([user("a", 0, prompt: "Fix the login bug"), assistant("a", 1, id: "a1")], to: "a.jsonl")
+        try write([user("b", 0, prompt: "Write docs about login"), assistant("b", 2, id: "b1")], to: "b.jsonl")
+        try write([user("c", 0, prompt: "Plot a chart"), assistant("c", 3, id: "c1")], to: "c.jsonl")
+        let sessions = UsageStore(root: root.deletingLastPathComponent()).refresh(now: base.addingTimeInterval(10))
+
+        XCTAssertEqual(SessionSearch.rank(sessions, query: "login").map(\.id).sorted(), ["a", "b"])
+        XCTAssertEqual(SessionSearch.rank(sessions, query: "fix login").map(\.id), ["a"])
+        XCTAssertEqual(SessionSearch.rank(sessions, query: "pltchrt").map(\.id), ["c"])
+        XCTAssertEqual(SessionSearch.rank(sessions, query: "proj chart").map(\.id), ["c"], "project folder counts")
+        XCTAssertTrue(SessionSearch.rank(sessions, query: "zzz").isEmpty)
+        XCTAssertEqual(SessionSearch.rank(sessions, query: "  ").count, 3)
+    }
 }

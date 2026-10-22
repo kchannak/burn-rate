@@ -57,8 +57,8 @@ ten minutes.
 
 ## Updating
 
-`UsageStore.refresh()` runs every two seconds on a background queue. It lists `.jsonl` files,
-skips those whose size hasn't changed and those not modified in seven days, and for the rest
+`UsageStore.refresh()` runs every 20 seconds by default (configurable) on a background queue. It lists `.jsonl` files,
+skips those whose size hasn't changed and those not modified in 30 days, and for the rest
 reads only the bytes appended since last time (`JSONLTailer`). A partial last line is held
 until its newline arrives. If a file ever shrinks, everything is rebuilt.
 

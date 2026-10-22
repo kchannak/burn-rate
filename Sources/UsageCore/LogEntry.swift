@@ -16,6 +16,9 @@ public struct LogEntry: Decodable {
     public var isMeta: Bool?
     /// Present on `type == "summary"` lines.
     public var summary: String?
+    /// Present on `type == "custom-title"` (the user renamed the session) and `"ai-title"` lines.
+    public var customTitle: String?
+    public var aiTitle: String?
     public var message: Message?
 
     public struct Message: Decodable {
@@ -31,12 +34,22 @@ public struct LogEntry: Decodable {
         public var outputTokens: Int?
         public var cacheCreationInputTokens: Int?
         public var cacheReadInputTokens: Int?
+        public var outputTokensDetails: OutputDetails?
+
+        public struct OutputDetails: Decodable, Equatable {
+            public var thinkingTokens: Int?
+
+            enum CodingKeys: String, CodingKey {
+                case thinkingTokens = "thinking_tokens"
+            }
+        }
 
         enum CodingKeys: String, CodingKey {
             case inputTokens = "input_tokens"
             case outputTokens = "output_tokens"
             case cacheCreationInputTokens = "cache_creation_input_tokens"
             case cacheReadInputTokens = "cache_read_input_tokens"
+            case outputTokensDetails = "output_tokens_details"
         }
 
         public var counts: TokenCounts {
@@ -44,7 +57,8 @@ public struct LogEntry: Decodable {
                 input: inputTokens ?? 0,
                 output: outputTokens ?? 0,
                 cacheCreation: cacheCreationInputTokens ?? 0,
-                cacheRead: cacheReadInputTokens ?? 0
+                cacheRead: cacheReadInputTokens ?? 0,
+                thinking: outputTokensDetails?.thinkingTokens ?? 0
             )
         }
     }

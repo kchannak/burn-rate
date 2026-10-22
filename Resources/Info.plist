@@ -9,9 +9,9 @@
 	<key>CFBundleIdentifier</key>
 	<string>__BUNDLE_ID__</string>
 	<key>CFBundleName</key>
-	<string>Claude Usage Tracker</string>
+	<string>Claude Usage</string>
 	<key>CFBundleDisplayName</key>
-	<string>Claude Usage Tracker</string>
+	<string>Claude Usage</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -22,6 +22,8 @@
 	<string>14.0</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.developer-tools</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 </dict>

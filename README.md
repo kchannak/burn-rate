@@ -31,8 +31,12 @@ documented link to an existing Claude Code session yet. If one appears, it belon
 ## How it works
 
 Claude Code writes every session to `~/.claude/projects/<project>/<session-id>.jsonl`
-(or under `$CLAUDE_CONFIG_DIR`). The app reads those files every two seconds, reading only
+(or under `$CLAUDE_CONFIG_DIR`). The app reads those files every 20 seconds by default (2, 5, 20 or 60, set in the panel), reading only
 what was appended. See [docs/DESIGN.md](docs/DESIGN.md) for the details and the caveats.
+
+Codex sessions are read the same way from `~/.codex/sessions/` (or `$CODEX_HOME`), with names
+from Codex's thread list. Each agent has its own reader (`UsageSource`) that turns its logs into
+the same session summary, so another agent can be added without touching the UI.
 
 ## Run it from source
 
@@ -50,7 +54,7 @@ swift test
 scripts/build-app.sh
 ```
 
-This produces `dist/Claude Usage Tracker.app`, plus a `.dmg` and `.zip` to share. It needs full
+This produces `dist/Claude Usage.app`, plus a `.dmg` and `.zip` to share. It needs full
 Xcode, not just the command line tools, for the universal (Apple silicon + Intel) build.
 
 Without signing credentials the build is ad-hoc signed. Others can run it, but macOS will block
