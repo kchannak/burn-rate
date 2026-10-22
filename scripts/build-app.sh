@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds "Claude Usage Tracker.app" and packages it as a .zip and .dmg in dist/.
+# Builds "Claude Usage.app" and packages it as a .zip and .dmg in dist/.
 #
 # Without signing credentials the app is ad-hoc signed: it runs on this Mac, and on other
 # Macs after right-click > Open (or `xattr -dr com.apple.quarantine`). For a build others
@@ -17,7 +17,7 @@ cd "$(dirname "$0")/.."
 VERSION="${VERSION:-0.1.0}"
 BUILD_NUMBER="${BUILD_NUMBER:-1}"
 BUNDLE_ID="${BUNDLE_ID:-io.github.kchannak.ClaudeUsageTracker}"
-APP_NAME="Claude Usage Tracker"
+APP_NAME="Claude Usage"
 PRODUCT="ClaudeUsageTracker"
 DIST="dist"
 APP="$DIST/$APP_NAME.app"
@@ -33,6 +33,8 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/$PRODUCT" "$APP/Contents/MacOS/$PRODUCT"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD_NUMBER/" -e "s/__BUNDLE_ID__/$BUNDLE_ID/" \
     Resources/Info.plist > "$APP/Contents/Info.plist"
+# Regenerate with: swift scripts/make-icon.swift /tmp/AppIcon.iconset && iconutil -c icns /tmp/AppIcon.iconset -o Resources/AppIcon.icns
+cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
 if [[ -n "${SIGN_IDENTITY:-}" ]]; then
     echo "==> Signing with $SIGN_IDENTITY"

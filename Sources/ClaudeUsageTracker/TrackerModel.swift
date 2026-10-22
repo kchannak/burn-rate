@@ -6,9 +6,33 @@ import UserNotifications
 /// Polls the session logs in the background and publishes snapshots to the UI.
 @MainActor
 final class TrackerModel: ObservableObject {
-    @Published private(set) var sessions: [SessionSummary] = []
+    /// Sessions from every agent.
+    @Published private(set) var allSessions: [SessionSummary] = []
+
+    /// "all", or an `Agent` raw value to show one agent only.
+    @Published var agentFilter: String {
+        didSet { UserDefaults.standard.set(agentFilter, forKey: "agentFilter") }
+    }
+
+    /// Sessions after the agent filter; everything in the panel is computed from these.
+    var sessions: [SessionSummary] {
+        agentFilter == "all" ? allSessions : allSessions.filter { $0.agent.rawValue == agentFilter }
+    }
+
+    /// Agents that have at least one session, in a stable order.
+    var agentsSeen: [Agent] {
+        Agent.allCases.filter { agent in allSessions.contains { $0.agent == agent } }
+    }
     @Published private(set) var lastRefresh: Date?
     @Published var showIdle = false
+
+    /// Seconds between reads of the session logs.
+    @Published var refreshInterval: TimeInterval {
+        didSet {
+            UserDefaults.standard.set(refreshInterval, forKey: "refreshInterval")
+            startTimer()
+        }
+    }
 
     @Published var notifyOnNeedsReply: Bool {
         didSet {
@@ -17,7 +41,7 @@ final class TrackerModel: ObservableObject {
         }
     }
 
-    private let store = UsageStore()
+    private let store = AllSources()
     private let queue = DispatchQueue(label: "ClaudeUsageTracker.store")
     private var timer: Timer?
     private var isRefreshing = false
@@ -25,10 +49,10 @@ final class TrackerModel: ObservableObject {
 
     init() {
         notifyOnNeedsReply = UserDefaults.standard.object(forKey: "notifyOnNeedsReply") as? Bool ?? true
+        agentFilter = UserDefaults.standard.string(forKey: "agentFilter") ?? "all"
+        refreshInterval = UserDefaults.standard.object(forKey: "refreshInterval") as? TimeInterval ?? 20
         refresh()
-        timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.refresh() }
-        }
+        startTimer()
         if notifyOnNeedsReply { requestNotificationPermission() }
     }
 
@@ -59,6 +83,13 @@ final class TrackerModel: ObservableObject {
         return sessions.first { $0.id == id }
     }
 
+    private func startTimer() {
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: max(refreshInterval, 1), repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.refresh() }
+        }
+    }
+
     func refresh() {
         guard !isRefreshing else { return }
         isRefreshing = true
@@ -69,7 +100,7 @@ final class TrackerModel: ObservableObject {
                 guard let self else { return }
                 self.isRefreshing = false
                 self.notifyTransitions(snapshot)
-                self.sessions = snapshot
+                self.allSessions = snapshot
                 self.lastRefresh = Date()
             }
         }

@@ -14,13 +14,15 @@ struct ClaudeUsageTrackerApp: App {
 
     var body: some Scene {
         Window("Claude Usage", id: "sessions") {
-            SessionsWindow()
+            MeterPanel()
                 .environmentObject(model)
-                .frame(minWidth: 900, minHeight: 500)
+                .fixedSize()
         }
+        .windowResizability(.contentSize)
+        .windowStyle(.hiddenTitleBar)
 
         MenuBarExtra {
-            MenuBarView()
+            MeterPanel(showsQuit: true)
                 .environmentObject(model)
         } label: {
             MenuBarLabel(model: model)

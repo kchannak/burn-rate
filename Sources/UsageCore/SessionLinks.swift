@@ -8,8 +8,12 @@ import Foundation
 /// session is `claude --resume <id>` in its working directory.
 public enum SessionLinks {
     /// Shell command that resumes the session in a terminal.
-    public static func resumeCommand(sessionId: String, cwd: String?) -> String {
-        let resume = "claude --resume \(shellQuote(sessionId))"
+    public static func resumeCommand(sessionId: String, cwd: String?, agent: Agent = .claude) -> String {
+        let resume: String
+        switch agent {
+        case .claude: resume = "claude --resume \(shellQuote(sessionId))"
+        case .codex: resume = "codex resume \(shellQuote(sessionId))"
+        }
         guard let cwd, !cwd.isEmpty else { return resume }
         return "cd \(shellQuote(cwd)) && \(resume)"
     }

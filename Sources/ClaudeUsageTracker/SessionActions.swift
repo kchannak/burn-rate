@@ -9,7 +9,7 @@ enum SessionActions {
     /// Writes a small `.command` script and hands it to Launch Services, which avoids needing
     /// Automation permission to script Terminal.
     static func resumeInTerminal(_ session: SessionSummary) {
-        let command = SessionLinks.resumeCommand(sessionId: session.id, cwd: session.cwd)
+        let command = SessionLinks.resumeCommand(sessionId: session.id, cwd: session.cwd, agent: session.agent)
         let script = """
         #!/bin/zsh -l
         \(command)
@@ -32,7 +32,7 @@ enum SessionActions {
     }
 
     static func copyResumeCommand(_ session: SessionSummary) {
-        copy(SessionLinks.resumeCommand(sessionId: session.id, cwd: session.cwd))
+        copy(SessionLinks.resumeCommand(sessionId: session.id, cwd: session.cwd, agent: session.agent))
     }
 
     static func copySessionId(_ session: SessionSummary) {
