@@ -96,18 +96,43 @@ def spark(canvas, cx, cy, r):
 
 
 def knot(canvas, cx, cy, r):
-    # Six rounded loops turned 60 degrees apart around a hexagonal centre, in the spirit
-    # of the OpenAI/Codex mark.
-    layer = Image.new("RGBA", (N, N), (0, 0, 0, 0))
-    w = max(2, int(r * 0.14))
-    for i in range(6):
-        loop = Image.new("RGBA", (N, N), (0, 0, 0, 0))
-        d = ImageDraw.Draw(loop)
-        # A capsule standing beside the centre; rotating copies forms the rosette.
-        box = [cx + r * 0.08, cy - r * 0.92, cx + r * 0.62, cy + r * 0.18]
-        d.rounded_rectangle(box, int(r * 0.27), outline=WHITE, width=w)
-        layer.alpha_composite(loop.rotate(i * 60, resample=Image.BICUBIC, center=(cx, cy)))
-    canvas.alpha_composite(layer)
+    """Six woven rounded links around a hexagonal centre, in the spirit of the OpenAI mark.
+
+    Each link is outlined in the tile colour so it reads as passing over its neighbour.
+    Drawn in one order, the last link would sit on top of the first, so the result is
+    stitched from two draw orders: each half of the knot comes from the order that has
+    no seam there.
+    """
+    gap_colour = tuple(int((a + b) / 2) for a, b in zip(BG_TOP, BG_BOTTOM)) + (255,)
+    off, width, top, bottom, radius, stroke = 0.3, 0.6, 0.85, -0.4, 0.3, 0.12
+
+    def link(i):
+        img = Image.new("RGBA", (N, N), (0, 0, 0, 0))
+        d = ImageDraw.Draw(img)
+        box = [cx + off * r - width * r / 2, cy - top * r, cx + off * r + width * r / 2, cy - bottom * r]
+        g = stroke * r * 0.9
+        d.rounded_rectangle([box[0] - g / 2, box[1] - g / 2, box[2] + g / 2, box[3] + g / 2],
+                            int(radius * r + g / 2), outline=gap_colour, width=int(stroke * r + g))
+        d.rounded_rectangle(box, int(radius * r), outline=WHITE + (255,), width=int(stroke * r))
+        return img.rotate(-i * 60, resample=Image.BICUBIC, center=(cx, cy))
+
+    links = [link(i) for i in range(6)]
+
+    def stack(order):
+        img = Image.new("RGBA", (N, N), (0, 0, 0, 0))
+        for i in order:
+            img.alpha_composite(links[i])
+        return img
+
+    first, second = stack([0, 1, 2, 3, 4, 5]), stack([3, 4, 5, 0, 1, 2])
+    # The first order's seam is where link 5 crosses link 0, up and to the right of centre
+    # (screen coordinates); take that half-plane from the second order.
+    seam = math.atan2(-0.73, 0.68)
+    half = Image.linear_gradient("L").resize((N, N)).point(lambda v: 255 if v >= 128 else 0)
+    # linear_gradient grows downwards; turn "down" to point at the seam, about the knot centre.
+    half = half.rotate(math.degrees(math.pi / 2 - seam) * -1, resample=Image.NEAREST,
+                       center=(N / 2, N / 2), translate=(cx - N / 2, cy - N / 2), fillcolor=0)
+    canvas.alpha_composite(Image.composite(second, first, half))
 
 
 def bars(canvas):
