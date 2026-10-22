@@ -3,7 +3,7 @@ import SwiftUI
 import UsageCore
 
 @main
-struct ClaudeUsageTrackerApp: App {
+struct BurnrateApp: App {
     @StateObject private var model = TrackerModel()
 
     init() {
@@ -13,14 +13,16 @@ struct ClaudeUsageTrackerApp: App {
     }
 
     var body: some Scene {
-        Window("Claude Usage", id: "sessions") {
-            SessionsWindow()
+        Window("Burnrate", id: "sessions") {
+            MeterPanel()
                 .environmentObject(model)
-                .frame(minWidth: 900, minHeight: 500)
+                .fixedSize()
         }
+        .windowResizability(.contentSize)
+        .windowStyle(.hiddenTitleBar)
 
         MenuBarExtra {
-            MenuBarView()
+            MeterPanel(showsQuit: true)
                 .environmentObject(model)
         } label: {
             MenuBarLabel(model: model)

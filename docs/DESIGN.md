@@ -2,7 +2,7 @@
 
 ## Goals
 
-1. Show token usage per Claude Code session, and in total.
+1. Show token usage per coding-agent session (Claude Code, Codex), and in total.
 2. Show how fast tokens are being generated.
 3. Keep sessions that run at the same time apart.
 4. Make it one click to get back to a session that needs a response.
@@ -57,8 +57,8 @@ ten minutes.
 
 ## Updating
 
-`UsageStore.refresh()` runs every two seconds on a background queue. It lists `.jsonl` files,
-skips those whose size hasn't changed and those not modified in seven days, and for the rest
+`UsageStore.refresh()` runs every 30 seconds by default (configurable) on a background queue. It lists `.jsonl` files,
+skips those whose size hasn't changed and those not modified in 30 days, and for the rest
 reads only the bytes appended since last time (`JSONLTailer`). A partial last line is held
 until its newline arrives. If a file ever shrinks, everything is rebuilt.
 
@@ -76,8 +76,8 @@ until its newline arrives. If a file ever shrinks, everything is rebuilt.
 
 ```
 Sources/UsageCore/          parsing and aggregation (Foundation only)
-Sources/ClaudeUsageTracker/ SwiftUI app: menu bar extra, sessions window, actions
-Sources/claude-usage/       CLI that prints the same numbers
+Sources/BurnrateApp/        SwiftUI app: menu bar extra, panel window, actions
+Sources/burnrate-cli/       `burnrate` CLI that prints the same numbers
 Tests/UsageCoreTests/       XCTest against generated log fixtures
 scripts/build-app.sh        .app bundle, signing, notarization, .dmg and .zip
 .github/workflows/          CI on every push, signed releases on tags
