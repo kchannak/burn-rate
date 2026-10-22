@@ -702,7 +702,7 @@ struct MeterPanel: View {
                 Text("Refresh every").font(.system(size: 11)).foregroundStyle(Meter.dim)
                 Spacer()
                 Picker("", selection: $model.refreshInterval) {
-                    ForEach([2.0, 5, 20, 60], id: \.self) { Text("\(Int($0))s").tag($0) }
+                    ForEach([5.0, 15, 30, 60], id: \.self) { Text("\(Int($0))s").tag($0) }
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
