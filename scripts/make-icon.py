@@ -4,9 +4,10 @@
 Needs Pillow (pip install pillow). scripts/build-app.sh turns the iconset into
 AppIcon.icns with iconutil, so only rerun this when the artwork changes.
 
-The artwork: a dark tile with a large terminal prompt (">_") in the back, standing for any
-coding agent (Claude Code, Codex, ...), and a small stack of dollar notes and a teal
-token-usage bar chart in front of it.
+The artwork: a dark tile with two agent marks side by side (an orange Claude-style spark and
+a white Codex-style knot), and a small stack of dollar notes and a teal token-usage bar chart
+in front of them. Both marks are drawn here in the spirit of the originals, not copied, and
+are meant for personal use of the app.
 """
 import math
 import os
@@ -18,7 +19,8 @@ SS = 4                      # supersampling factor
 N = 1024 * SS               # working canvas
 BG_TOP, BG_BOTTOM = (30, 31, 34), (12, 12, 14)
 TEAL = (45, 212, 191)
-PROMPT = (226, 228, 233)
+ORANGE = (217, 119, 87)
+WHITE = (236, 238, 242)
 NOTE, NOTE_DARK, NOTE_INK = (52, 110, 82), (33, 74, 55), (150, 200, 170)
 
 FONT_PATHS = [
@@ -78,25 +80,39 @@ def paste_rotated(canvas, img, angle, centre):
     canvas.alpha_composite(rot, (x, y))
 
 
-def prompt(canvas, x, y, size):
-    # A chunky ">_" terminal prompt with round caps: agent-neutral, no vendor mark.
+def spark(canvas, cx, cy, r):
+    # Chunky round-capped rays of uneven length, in the spirit of the Claude mark.
     layer = Image.new("RGBA", (N, N), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
-    w = size * 0.2
+    lengths = [1.0, 0.82, 0.94, 0.78, 1.0, 0.86, 0.92, 0.8, 0.97, 0.84]
+    w = r * 0.2
+    for i, k in enumerate(lengths):
+        a = math.pi / 2 + i * 2 * math.pi / len(lengths)
+        tip = (cx + (r * k - w / 2) * math.cos(a), cy - (r * k - w / 2) * math.sin(a))
+        d.line([(cx, cy), tip], fill=ORANGE, width=int(w))
+        d.ellipse([tip[0] - w / 2, tip[1] - w / 2, tip[0] + w / 2, tip[1] + w / 2], fill=ORANGE)
+    d.ellipse([cx - r * 0.24, cy - r * 0.24, cx + r * 0.24, cy + r * 0.24], fill=ORANGE)
+    canvas.alpha_composite(layer)
 
-    def stroke(points):
-        d.line(points, fill=PROMPT, width=int(w), joint="curve")
-        for px_, py_ in (points[0], points[-1]):
-            d.ellipse([px_ - w / 2, py_ - w / 2, px_ + w / 2, py_ + w / 2], fill=PROMPT)
 
-    stroke([(x, y - size * 0.55), (x + size * 0.55, y), (x, y + size * 0.55)])
-    stroke([(x + size * 0.85, y + size * 0.55), (x + size * 1.55, y + size * 0.55)])
+def knot(canvas, cx, cy, r):
+    # Six rounded loops turned 60 degrees apart around a hexagonal centre, in the spirit
+    # of the OpenAI/Codex mark.
+    layer = Image.new("RGBA", (N, N), (0, 0, 0, 0))
+    w = max(2, int(r * 0.14))
+    for i in range(6):
+        loop = Image.new("RGBA", (N, N), (0, 0, 0, 0))
+        d = ImageDraw.Draw(loop)
+        # A capsule standing beside the centre; rotating copies forms the rosette.
+        box = [cx + r * 0.08, cy - r * 0.92, cx + r * 0.62, cy + r * 0.18]
+        d.rounded_rectangle(box, int(r * 0.27), outline=WHITE, width=w)
+        layer.alpha_composite(loop.rotate(i * 60, resample=Image.BICUBIC, center=(cx, cy)))
     canvas.alpha_composite(layer)
 
 
 def bars(canvas):
     # Token usage per session: teal bars of uneven height, edged in the tile colour so they
-    # stay distinct where they cross the prompt.
+    # stay distinct where they cross the marks.
     base, width, gap = 790, 42, 18
     heights = [110, 200, 150, 250]
     layer = Image.new("RGBA", (N, N), (0, 0, 0, 0))
@@ -112,7 +128,8 @@ def bars(canvas):
 
 def render():
     canvas = background()
-    prompt(canvas, px(255), px(395), px(250))
+    spark(canvas, px(350), px(390), px(195))
+    knot(canvas, px(680), px(390), px(175))
     for angle, (x, y) in ((16, (400, 690)), (7, (410, 720)), (-2, (420, 750))):
         paste_rotated(canvas, note(270, 140), angle, (px(x), px(y)))
     bars(canvas)
