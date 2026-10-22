@@ -50,7 +50,7 @@ final class TrackerModel: ObservableObject {
     init() {
         notifyOnNeedsReply = UserDefaults.standard.object(forKey: "notifyOnNeedsReply") as? Bool ?? true
         agentFilter = UserDefaults.standard.string(forKey: "agentFilter") ?? "all"
-        refreshInterval = UserDefaults.standard.object(forKey: "refreshInterval") as? TimeInterval ?? 20
+        refreshInterval = UserDefaults.standard.object(forKey: "refreshInterval") as? TimeInterval ?? 30
         refresh()
         startTimer()
         if notifyOnNeedsReply { requestNotificationPermission() }

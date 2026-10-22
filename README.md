@@ -31,7 +31,7 @@ documented link to an existing Claude Code session yet. If one appears, it belon
 ## How it works
 
 Claude Code writes every session to `~/.claude/projects/<project>/<session-id>.jsonl`
-(or under `$CLAUDE_CONFIG_DIR`). The app reads those files every 20 seconds by default (2, 5, 20 or 60, set in the panel), reading only
+(or under `$CLAUDE_CONFIG_DIR`). The app reads those files every 30 seconds by default (5, 15, 30 or 60, set in the panel), reading only
 what was appended. See [docs/DESIGN.md](docs/DESIGN.md) for the details and the caveats.
 
 Codex sessions are read the same way from `~/.codex/sessions/` (or `$CODEX_HOME`), with names
