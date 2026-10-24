@@ -72,6 +72,17 @@ final class TrackerModel: ObservableObject {
         sessions.tokens(since: Calendar.current.startOfDay(for: Date()))
     }
 
+    /// Today's tokens across every agent, ignoring `agentFilter` — for the compact window,
+    /// which always tracks everything rather than whichever agent is selected in the full view.
+    var allTokensToday: TokenCounts {
+        allSessions.tokens(since: Calendar.current.startOfDay(for: Date()))
+    }
+
+    /// `activeSessions`, but ignoring `agentFilter`.
+    var allActiveSessions: [SessionSummary] {
+        allSessions.filter { $0.state != .idle }
+    }
+
     /// Sum of the latest speed of every session that is generating right now.
     var liveTokensPerSecond: Double? {
         let rates = sessions.filter { $0.state == .working }.compactMap(\.recentTokensPerSecond)
