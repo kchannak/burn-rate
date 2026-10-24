@@ -180,6 +180,17 @@ struct MeterPanel: View {
         Double(lastMinute.reduce(0) { $0 + $1.tokens.output }) / 60
     }
 
+    /// `lastMinute`, but across every agent — for the compact window, which always tracks
+    /// everything rather than whichever agent is selected in the full view.
+    private var allLastMinute: [MessageStat] {
+        let cutoff = Date().addingTimeInterval(-60)
+        return model.allSessions.flatMap(\.messages).filter { $0.lastSeen >= cutoff }
+    }
+
+    private var allOutputPerSecond: Double {
+        Double(allLastMinute.reduce(0) { $0 + $1.tokens.output }) / 60
+    }
+
     private var byModel: [(model: String, rate: Double)] {
         Dictionary(grouping: lastMinute, by: { $0.model ?? "unknown" })
             .map { ($0.key, Double($0.value.reduce(0) { $0 + $1.tokens.output }) / 60) }
@@ -241,12 +252,13 @@ struct MeterPanel: View {
         .help(help)
     }
 
-    /// Just the numbers: today's totals across all sessions, or the most recent session.
+    /// Just the numbers: today's totals across every agent, or the most recent session overall.
+    /// Compact mode always tracks all models/agents, regardless of the full view's agent filter.
     private var compactBody: some View {
-        let latest = model.sessions.max { ($0.lastActivity ?? .distantPast) < ($1.lastActivity ?? .distantPast) }
+        let latest = model.allSessions.max { ($0.lastActivity ?? .distantPast) < ($1.lastActivity ?? .distantPast) }
         let showLatest = compactScope == "latest"
-        let tokens = showLatest ? latest.map { $0.tokens + $0.subagentTokens } ?? .zero : model.tokensToday
-        let rate = showLatest ? latest?.recentTokensPerSecond : outputPerSecond
+        let tokens = showLatest ? latest.map { $0.tokens + $0.subagentTokens } ?? .zero : model.allTokensToday
+        let rate = showLatest ? latest?.recentTokensPerSecond : allOutputPerSecond
         let pct = { (value: Double?) in value.map { "\(Int(($0 * 100).rounded()))%" } ?? "–" }
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
@@ -279,7 +291,7 @@ struct MeterPanel: View {
                 if showLatest {
                     compactFigure(latest?.state.label.lowercased() ?? "–", "state")
                 } else {
-                    compactFigure("\(model.activeSessions.count)", "active")
+                    compactFigure("\(model.allActiveSessions.count)", "active")
                 }
             }
             if let refreshed = model.lastRefresh {
