@@ -170,47 +170,34 @@ struct MeterPanel: View {
         return Array(timed.sorted { $0.lastSeen < $1.lastSeen }.suffix(40))
     }
 
-    /// Responses that finished in the last 60 seconds, across all sessions.
+    /// The window the live readouts (hero tok/s, "Last 15s" breakdown) average over —
+    /// short enough that they track recent activity instead of smoothing it away.
+    private static let window: TimeInterval = 15
+
+    /// Responses that finished within `window`, across all sessions.
     private var lastMinute: [MessageStat] {
-        let cutoff = Date().addingTimeInterval(-60)
-        return model.sessions.flatMap(\.messages).filter { $0.lastSeen >= cutoff }
-    }
-
-    /// The hero tok/s reading's averaging window — short enough that the plot tracks
-    /// recent activity instead of smoothing it away.
-    private static let heroWindow: TimeInterval = 15
-
-    /// Responses that finished within `heroWindow`, across all sessions — feeds the
-    /// hero output tok/s reading and its sparkline.
-    private var recentOutput: [MessageStat] {
-        let cutoff = Date().addingTimeInterval(-Self.heroWindow)
+        let cutoff = Date().addingTimeInterval(-Self.window)
         return model.sessions.flatMap(\.messages).filter { $0.lastSeen >= cutoff }
     }
 
     private var outputPerSecond: Double {
-        Double(recentOutput.reduce(0) { $0 + $1.tokens.output }) / Self.heroWindow
+        Double(lastMinute.reduce(0) { $0 + $1.tokens.output }) / Self.window
     }
 
     /// `lastMinute`, but across every agent — for the compact window, which always tracks
     /// everything rather than whichever agent is selected in the full view.
     private var allLastMinute: [MessageStat] {
-        let cutoff = Date().addingTimeInterval(-60)
-        return model.allSessions.flatMap(\.messages).filter { $0.lastSeen >= cutoff }
-    }
-
-    /// `recentOutput`, but across every agent — for the compact window.
-    private var allRecentOutput: [MessageStat] {
-        let cutoff = Date().addingTimeInterval(-Self.heroWindow)
+        let cutoff = Date().addingTimeInterval(-Self.window)
         return model.allSessions.flatMap(\.messages).filter { $0.lastSeen >= cutoff }
     }
 
     private var allOutputPerSecond: Double {
-        Double(allRecentOutput.reduce(0) { $0 + $1.tokens.output }) / Self.heroWindow
+        Double(allLastMinute.reduce(0) { $0 + $1.tokens.output }) / Self.window
     }
 
     private var byModel: [(model: String, rate: Double)] {
         Dictionary(grouping: lastMinute, by: { $0.model ?? "unknown" })
-            .map { ($0.key, Double($0.value.reduce(0) { $0 + $1.tokens.output }) / 60) }
+            .map { ($0.key, Double($0.value.reduce(0) { $0 + $1.tokens.output }) / Self.window) }
             .sorted { $0.1 > $1.1 }
     }
 
@@ -235,7 +222,7 @@ struct MeterPanel: View {
             Fold("Sessions", key: "fold.sessions", open: true) { sessionList }
             Fold("Usage", key: "fold.usage", open: true) { usageSection }
             Fold("Models & limits", key: "fold.models") { topRow }
-            Fold("Last minute", key: "fold.minute") {
+            Fold("Last 15s", key: "fold.minute") {
                 VStack(alignment: .leading, spacing: 16) { stats; modelList }
             }
             Fold("Context & mix", key: "fold.context") { usagePies }
@@ -443,8 +430,8 @@ struct MeterPanel: View {
     private var stats: some View {
         let t = lastMinute.reduce(TokenCounts.zero) { $0 + $1.tokens }
         return HStack(alignment: .top, spacing: 0) {
-            stat("Input / 60s", TokenFormat.short(t.input + t.cacheCreation + t.cacheRead))
-            stat("Cached / 60s", TokenFormat.short(t.cacheRead))
+            stat("Input / 15s", TokenFormat.short(t.input + t.cacheCreation + t.cacheRead))
+            stat("Cached / 15s", TokenFormat.short(t.cacheRead))
             stat("Today", TokenFormat.short(model.tokensToday.total))
         }
     }
@@ -459,9 +446,9 @@ struct MeterPanel: View {
 
     private var modelList: some View {
         VStack(alignment: .leading, spacing: 12) {
-            MicroLabel("Output by model · last 60s")
+            MicroLabel("Output by model · last 15s")
             if byModel.isEmpty {
-                Text("No output in the last minute").font(.system(size: 12)).foregroundStyle(Meter.dim)
+                Text("No output in the last 15 seconds").font(.system(size: 12)).foregroundStyle(Meter.dim)
             } else {
                 ForEach(byModel, id: \.model) { row in
                     HStack(alignment: .firstTextBaseline) {
