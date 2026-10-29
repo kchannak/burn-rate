@@ -360,7 +360,48 @@ struct MeterPanel: View {
                 Text("output tok/s").font(.system(size: 13, weight: .medium)).foregroundStyle(Meter.text)
                 Text("60-second average").font(.system(size: 11)).foregroundStyle(Meter.dim)
             }
+            if let quota = selectedQuota {
+                Spacer(minLength: 8)
+                heroQuota(quota)
+            }
         }
+    }
+
+    /// The quota forecast for whichever agent the hero readout should reflect: the picked
+    /// agent when one is selected, otherwise whichever of the two is closer to trouble.
+    private var selectedQuota: QuotaForecast? {
+        switch model.agentFilter {
+        case Agent.claude.rawValue: return model.claudeQuota
+        case Agent.codex.rawValue: return model.codexQuota
+        default:
+            return [model.claudeQuota, model.codexQuota].compactMap { $0 }.first(where: \.likelyToExceed)
+                ?? model.codexQuota ?? model.claudeQuota
+        }
+    }
+
+    /// Compact quota readout next to the output-rate hero: percent used, the projection at
+    /// reset, and a nudge once that projection confidently clears 100%.
+    private func heroQuota(_ quota: QuotaForecast) -> some View {
+        VStack(alignment: .trailing, spacing: 3) {
+            MicroLabel("\(quota.agent.label) quota")
+            Text(heroQuotaValue(quota))
+                .font(Meter.mono(13, .semibold))
+                .foregroundStyle(quotaColor(quota))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            if quota.likelyToExceed {
+                Text("switch model").font(.system(size: 9, weight: .medium)).foregroundStyle(.orange)
+            }
+        }
+        .frame(maxWidth: 108, alignment: .trailing)
+    }
+
+    private func heroQuotaValue(_ quota: QuotaForecast) -> String {
+        guard quota.isWindowActive else { return "window closed" }
+        let used = Int(quota.usedPercent.rounded())
+        guard let projected = quota.projectedPercent, !quota.lowConfidence else { return "\(used)% used" }
+        return "\(used)% → \(Int(projected.rounded()))%"
     }
 
     private var statusRow: some View {
