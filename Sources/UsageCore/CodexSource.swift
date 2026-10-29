@@ -24,6 +24,11 @@ public final class AllSources {
         sources.flatMap { $0.refresh(now: now) }
             .sorted { ($0.lastActivity ?? .distantPast) > ($1.lastActivity ?? .distantPast) }
     }
+
+    /// Codex's own plan-quota snapshot, when a Codex source is configured and has logged one.
+    public var codexRateLimit: CodexRateLimit? {
+        (sources.first { $0.agent == .codex } as? CodexSource)?.latestRateLimit
+    }
 }
 
 /// Reads Codex sessions from `~/.codex` (or `$CODEX_HOME`).
@@ -44,6 +49,11 @@ public final class CodexSource: UsageSource {
     private var tailers: [URL: JSONLTailer] = [:]
     private var knownSizes: [URL: Int] = [:]
     private var sessions: [URL: CodexSession] = [:]
+
+    /// The most recently logged rate-limit snapshot across every session, account-wide rather
+    /// than per-session.
+    public private(set) var latestRateLimit: CodexRateLimit?
+    private var latestRateLimitDate: Date?
 
     public static var defaultRoot: URL {
         if let home = ProcessInfo.processInfo.environment["CODEX_HOME"], !home.isEmpty {
@@ -104,6 +114,11 @@ public final class CodexSource: UsageSource {
             guard let object = try? JSONSerialization.jsonObject(with: line) as? [String: Any] else { continue }
             session.ingest(object)
         }
+        if let date = session.latestRateLimitDate, let rateLimit = session.latestRateLimit,
+           latestRateLimitDate.map({ date > $0 }) ?? true {
+            latestRateLimitDate = date
+            latestRateLimit = rateLimit
+        }
     }
 }
 
@@ -123,6 +138,8 @@ final class CodexSession {
     var lastEvent: SessionAccumulator.LastEvent?
     private var lastTrigger: Date?
     private var previousTotal: CodexUsage?
+    var latestRateLimit: CodexRateLimit?
+    var latestRateLimitDate: Date?
 
     init(file: URL) {
         self.file = file
@@ -172,6 +189,7 @@ final class CodexSession {
             if let date { lastEvent = .assistantText(date) }
         case ("event_msg", "token_count"):
             recordUsage(payload, at: date)
+            recordRateLimit(payload, at: date)
         default:
             break
         }
@@ -194,6 +212,23 @@ final class CodexSession {
             isSidechain: false
         ))
         lastTrigger = date
+    }
+
+    /// `rate_limits` rides alongside `token_count`'s `info`: a live snapshot of the account's
+    /// plan usage, not something tied to this one session.
+    private func recordRateLimit(_ payload: [String: Any], at date: Date?) {
+        guard let date,
+              let rateLimits = payload["rate_limits"] as? [String: Any],
+              let primary = rateLimits["primary"] as? [String: Any],
+              let usedPercent = primary["used_percent"] as? Double,
+              let windowMinutes = primary["window_minutes"] as? Int,
+              let resetsAtEpoch = primary["resets_at"] as? Double else { return }
+        latestRateLimit = CodexRateLimit(
+            usedPercent: usedPercent, windowMinutes: windowMinutes,
+            resetsAt: Date(timeIntervalSince1970: resetsAtEpoch),
+            planType: rateLimits["plan_type"] as? String
+        )
+        latestRateLimitDate = date
     }
 
     func summary(now: Date, activeWindow: TimeInterval) -> SessionSummary? {

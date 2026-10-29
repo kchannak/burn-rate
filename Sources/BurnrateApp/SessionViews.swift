@@ -520,8 +520,12 @@ struct MeterPanel: View {
                 }
                 Rectangle().fill(Meter.rule).frame(height: 1).padding(.vertical, 2)
                 limitRow("Context", focusSession.map { "\(Int((Double(contextUsed($0)) / Double(contextWindow) * 100).rounded()))%" })
-                limitRow("Session limit", nil)
-                limitRow("Weekly limit", nil)
+                claudeQuotaRow
+                codexQuotaRow
+                if let hint = quotaGuidance {
+                    Text(hint).font(.system(size: 10)).foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true).padding(.top, 2)
+                }
             }
         }
     }
@@ -536,6 +540,74 @@ struct MeterPanel: View {
                 Text("not in logs").font(Meter.mono(10)).foregroundStyle(Meter.faint)
             }
         }
+    }
+
+    // MARK: Quota forecasts
+
+    /// Claude exposes no plan-limit data locally, so this is measured against a budget the
+    /// user sets themselves, over a window inferred from activity (any 5+ hour gap starts a
+    /// new one) rather than read from a server.
+    private var claudeQuotaRow: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Claude 5h budget").font(.system(size: 11)).foregroundStyle(Meter.dim)
+                Spacer()
+                if let quota = model.claudeQuota {
+                    Text(quotaValue(quota)).font(Meter.mono(11)).foregroundStyle(quotaColor(quota))
+                } else {
+                    Text("set a budget below").font(Meter.mono(10)).foregroundStyle(Meter.faint)
+                }
+            }
+            HStack(spacing: 6) {
+                TextField("tokens", value: $model.claudeBudgetTokens, format: .number)
+                    .textFieldStyle(.plain)
+                    .font(Meter.mono(10))
+                    .foregroundStyle(Meter.text)
+                    .frame(width: 70)
+                Text("tokens / 5h · your estimate; the window boundary is inferred from activity, not read from Anthropic")
+                    .font(.system(size: 9)).foregroundStyle(Meter.faint)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// Codex's own plan quota, read straight from its logs - a real figure, not an estimate.
+    private var codexQuotaRow: some View {
+        HStack {
+            Text("Codex plan limit").font(.system(size: 11)).foregroundStyle(Meter.dim)
+            Spacer()
+            if let quota = model.codexQuota {
+                Text(quotaValue(quota)).font(Meter.mono(11)).foregroundStyle(quotaColor(quota))
+            } else {
+                Text("not in logs").font(Meter.mono(10)).foregroundStyle(Meter.faint)
+            }
+        }
+    }
+
+    private func quotaValue(_ quota: QuotaForecast) -> String {
+        guard quota.isWindowActive else { return "0% · window closed" }
+        let used = Int(quota.usedPercent.rounded())
+        guard let projected = quota.projectedPercent else {
+            return "\(used)% so far · too early to project"
+        }
+        let projectedText = "\(Int(projected.rounded()))% projected"
+        return quota.lowConfidence ? "\(used)% so far · \(projectedText) (thin sample)" : "\(used)% so far · \(projectedText)"
+    }
+
+    private func quotaColor(_ quota: QuotaForecast) -> Color {
+        guard let projected = quota.projectedPercent, !quota.lowConfidence else { return Meter.dim }
+        return projected >= 100 ? .orange : Meter.accent
+    }
+
+    /// A nudge toward a cheaper model when either agent's pace is confidently set to blow
+    /// through its window before reset.
+    private var quotaGuidance: String? {
+        guard let forecast = [model.claudeQuota, model.codexQuota].compactMap({ $0 }).first(where: \.likelyToExceed) else {
+            return nil
+        }
+        let percent = Int((forecast.projectedPercent ?? 0).rounded())
+        return "\(forecast.agent.label) is on pace for ~\(percent)% of its window before reset - " +
+            "switch to a smaller model for upcoming tasks to stretch it."
     }
 
     /// What the list shows: search results over every loaded session, or the usual list.
