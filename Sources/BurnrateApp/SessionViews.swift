@@ -176,8 +176,19 @@ struct MeterPanel: View {
         return model.sessions.flatMap(\.messages).filter { $0.lastSeen >= cutoff }
     }
 
+    /// The hero tok/s reading's averaging window — short enough that the plot tracks
+    /// recent activity instead of smoothing it away.
+    private static let heroWindow: TimeInterval = 15
+
+    /// Responses that finished within `heroWindow`, across all sessions — feeds the
+    /// hero output tok/s reading and its sparkline.
+    private var recentOutput: [MessageStat] {
+        let cutoff = Date().addingTimeInterval(-Self.heroWindow)
+        return model.sessions.flatMap(\.messages).filter { $0.lastSeen >= cutoff }
+    }
+
     private var outputPerSecond: Double {
-        Double(lastMinute.reduce(0) { $0 + $1.tokens.output }) / 60
+        Double(recentOutput.reduce(0) { $0 + $1.tokens.output }) / Self.heroWindow
     }
 
     /// `lastMinute`, but across every agent — for the compact window, which always tracks
@@ -187,8 +198,14 @@ struct MeterPanel: View {
         return model.allSessions.flatMap(\.messages).filter { $0.lastSeen >= cutoff }
     }
 
+    /// `recentOutput`, but across every agent — for the compact window.
+    private var allRecentOutput: [MessageStat] {
+        let cutoff = Date().addingTimeInterval(-Self.heroWindow)
+        return model.allSessions.flatMap(\.messages).filter { $0.lastSeen >= cutoff }
+    }
+
     private var allOutputPerSecond: Double {
-        Double(allLastMinute.reduce(0) { $0 + $1.tokens.output }) / 60
+        Double(allRecentOutput.reduce(0) { $0 + $1.tokens.output }) / Self.heroWindow
     }
 
     private var byModel: [(model: String, rate: Double)] {
@@ -281,7 +298,7 @@ struct MeterPanel: View {
                 }
             }
             HStack(alignment: .top, spacing: 0) {
-                compactFigure(rate.map { String(format: "%.0f", $0) } ?? "–", showLatest ? "tok/s" : "tok/s · 60s", accent: true)
+                compactFigure(rate.map { String(format: "%.0f", $0) } ?? "–", showLatest ? "tok/s" : "tok/s · 15s", accent: true)
                 compactFigure(TokenFormat.short(tokens.total), "tokens")
                 compactFigure(pct(tokens.cacheHitRate), "cache hit")
             }
@@ -358,7 +375,7 @@ struct MeterPanel: View {
                 .contentTransition(.numericText())
             VStack(alignment: .leading, spacing: 3) {
                 Text("output tok/s").font(.system(size: 13, weight: .medium)).foregroundStyle(Meter.text)
-                Text("60-second average").font(.system(size: 11)).foregroundStyle(Meter.dim)
+                Text("15-second average").font(.system(size: 11)).foregroundStyle(Meter.dim)
             }
             if let quota = selectedQuota {
                 Spacer(minLength: 8)
