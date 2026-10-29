@@ -41,6 +41,26 @@ final class TrackerModel: ObservableObject {
         }
     }
 
+    /// Claude exposes no plan-limit figures locally, so its 5-hour budget is whatever the
+    /// user sets here. Zero means "unset" - no forecast is shown until they pick a number.
+    @Published var claudeBudgetTokens: Int {
+        didSet { UserDefaults.standard.set(claudeBudgetTokens, forKey: "claudeBudgetTokens") }
+    }
+
+    /// Codex's own plan-quota snapshot, read straight from its logs.
+    @Published private(set) var codexRateLimit: CodexRateLimit?
+
+    /// How Claude's usage is tracking against the 5-hour budget above, or nil until a budget
+    /// is set and there's at least one Claude message to measure.
+    var claudeQuota: QuotaForecast? {
+        ClaudeQuota.forecast(sessions: allSessions, budgetTokens: claudeBudgetTokens, now: Date())
+    }
+
+    /// How Codex's real plan quota is tracking toward its reset, or nil until Codex has logged one.
+    var codexQuota: QuotaForecast? {
+        codexRateLimit.map { CodexQuotaForecast.forecast($0, now: Date()) }
+    }
+
     private let store = AllSources()
     private let queue = DispatchQueue(label: "Burnrate.store")
     private var timer: Timer?
@@ -51,6 +71,7 @@ final class TrackerModel: ObservableObject {
         notifyOnNeedsReply = UserDefaults.standard.object(forKey: "notifyOnNeedsReply") as? Bool ?? true
         agentFilter = UserDefaults.standard.string(forKey: "agentFilter") ?? "all"
         refreshInterval = UserDefaults.standard.object(forKey: "refreshInterval") as? TimeInterval ?? 30
+        claudeBudgetTokens = UserDefaults.standard.integer(forKey: "claudeBudgetTokens")
         refresh()
         startTimer()
         if notifyOnNeedsReply { requestNotificationPermission() }
@@ -107,11 +128,13 @@ final class TrackerModel: ObservableObject {
         let store = self.store
         queue.async {
             let snapshot = store.refresh(now: Date())
+            let codexRateLimit = store.codexRateLimit
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.isRefreshing = false
                 self.notifyTransitions(snapshot)
                 self.allSessions = snapshot
+                self.codexRateLimit = codexRateLimit
                 self.lastRefresh = Date()
             }
         }
