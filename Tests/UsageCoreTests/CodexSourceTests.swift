@@ -93,4 +93,28 @@ final class CodexSourceTests: XCTestCase {
     func testMissingCodexFolderGivesNoSessions() {
         XCTAssertTrue(CodexSource(root: root.appendingPathComponent("nope")).refresh(now: base).isEmpty)
     }
+
+    func testTracksTheMostRecentRateLimitSnapshotAcrossSessions() throws {
+        func line(_ at: Double, usedPercent: Double, resetsAt: Double) -> String {
+            #"""
+            {"timestamp":"\#(ts(at))","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":10,"output_tokens":5}},"rate_limits":{"plan_type":"plus","primary":{"used_percent":\#(usedPercent),"window_minutes":43200,"resets_at":\#(resetsAt)}}}}
+            """#
+        }
+        let resets = base.addingTimeInterval(20 * 24 * 3600).timeIntervalSince1970
+        try (line(0, usedPercent: 12.5, resetsAt: resets) + "\n").write(
+            to: root.appendingPathComponent("sessions/2026/10/22/rollout-2026-10-22T00-00-00-a1.jsonl"),
+            atomically: true, encoding: .utf8)
+        try (line(5, usedPercent: 40, resetsAt: resets) + "\n").write(
+            to: root.appendingPathComponent("sessions/2026/10/22/rollout-2026-10-22T00-00-05-b2.jsonl"),
+            atomically: true, encoding: .utf8)
+
+        let source = CodexSource(root: root)
+        _ = source.refresh(now: base.addingTimeInterval(10))
+
+        let limit = try XCTUnwrap(source.latestRateLimit)
+        XCTAssertEqual(limit.usedPercent, 40)
+        XCTAssertEqual(limit.windowMinutes, 43_200)
+        XCTAssertEqual(limit.planType, "plus")
+        XCTAssertEqual(limit.resetsAt.timeIntervalSince1970, resets, accuracy: 1)
+    }
 }
